@@ -53,13 +53,16 @@ coins=1#this is the amount of coins the machine has
 
 #the number of hits of each pay combination is the product of the symbol factors
 hits<-as.data.frame(pay.out.factor[,1]*pay.out.factor[,2]*pay.out.factor[,3])
+
+#Adjustment for duplicates
+adj<-as.data.frame(c(24,24,0,11,0,0,0,0,0,0,0,0,0),nrow=1,ncol=13)
+adj.hits<-hits-adj
+
+
 #coin.out is the pay out times the number of hits for a pay combo
-coin.out<-as.data.frame(coin.pays*hits)
+coin.out<-as.data.frame(coin.pays*adj.hits)
 #the total.out is the summation of all the coin.out for all winning combos
 total.out<-sum(coin.out)
-#pay.percent is the total.out/total *100
-hits.total<-sum(hits)#total amount of hits of the slot machine
-
 ```
 
 
@@ -72,12 +75,15 @@ hits.total<-sum(hits)#total amount of hits of the slot machine
 #column is coin out which is the number of hits multiplied by the payout
 summary<-cbind(pay.out.comb,pay.out.factor)
 summary<-cbind(summary,hits)
+summary<-cbind(summary,adj)
+summary<-cbind(summary,adj.hits)
 summary<-cbind(summary,coin.pays)
 summary<-cbind(summary,coin.out)
-colnames(summary)<-c("R1","R2","R3","R_1","R_2","R_3","Total_Hits","Coin_Pays","Coin_Out")
+colnames(summary)<-c("R1","R2","R3","R_1","R_2","R_3","Total_Hits","Adjustment","Hits_Adjusted", "Coin_Pays","Coin_Out")
 
 #Turning the table summary into a gt table using the gt package
 summary<-summary%>%arrange(desc(Coin_Pays))
+#Turning the table summary into a gt table using the gt package
 summary%>%gt()%>%tab_options(
   table.border.right.style="solid",
   table.border.right.color="black",
@@ -98,7 +104,8 @@ cols_label(
   R_3="R3",
   Coin_Pays="Coin Pays",
   Total_Hits="Total Hits",
-  Coin_Out="Coin Out"
+  Coin_Out="Coin Out",
+  Hits_Adjusted="Hits Adjusted"
 )%>%
   tab_spanner(
     label = "Symbols",
@@ -123,9 +130,9 @@ cols_label(
       style = "solid"
     ),
     locations = cells_body(
-      columns = c(R3,R_3,Total_Hits,Coin_Pays)
+      columns = c(R3,R_3,Total_Hits,Coin_Pays,Adjustment,Hits_Adjusted)
     ))%>%summary_rows(
-      columns = c(Total_Hits,Coin_Out),
+      columns = c(Hits_Adjusted,Coin_Out),
       fns=list(
         Totals=~sum(.,na.rm=TRUE)
       ),
@@ -133,7 +140,7 @@ cols_label(
       formatter = fmt_integer
     ) %>%
   tab_source_note(
-    source_note = "XX Every Symbol Except 1"
+    source_note = "XX Every Symbol Except 1 or the Wild Symbol 8"
   ) %>%
   tab_source_note(
     source_note = "* Stated Symbol or the Wild Symbol 8"
@@ -145,7 +152,7 @@ cols_label(
 ```{r summarytable, echo=FALSE}
 pay.percent<-(total.out)/total.in#the % payback which is the total.out
 #divided by the total.in *100
-hits.total<-sum(hits)#summation of the total number of hits
+hits.total<-sum(adj.hits)#summation of the total number of hits
 hit.percent<-(hits.total)/total.in#the percent of hits of the machine
 
 #a data frame with 1 row, the columns being total hits, total out, total in
@@ -175,7 +182,7 @@ summary.table%>%gt()%>%tab_options(
   table.border.top.color = "black",
 )%>%
   cols_label(
-    Total_hits="Total Hits",
+    Total_hits="Hits Adjusted",
     Total_out="Total Out",
     Total_in="Total In",
     Hit_p="Hit %",
@@ -194,13 +201,13 @@ summary.table%>%gt()%>%tab_options(
 pays.summary<-data.frame(
   max.coin.pays<-coin.pays,#this column represents how much each winning 
   #combination pays out
-  percent.total.hits<-(hits)/hits.total,#the percentage of a specific winning
+  percent.total.hits<-(adj.hits)/hits.total,#the percentage of a specific winning
   #combo happening
   percent.total.outs<-(coin.out)/total.out,#percentage of the machine pay back
   #which comes from a specific winning combo
-  plays.per.hit<-round(total.in/hits,digits = 0),#calculating the average plays 
+  plays.per.hit<-round(total.in/adj.hits,digits = 0),#calculating the average plays 
   #per hit needed to get a specific winning combo
-  hits<-hits
+  hits<-adj.hits
 )
 
 colnames(pays.summary)<-c("maxcoinpay","ptotalhits","ptotalout","playsperhit","hits")
@@ -248,7 +255,7 @@ pays.summary%>%gt()%>%tab_options(
   table.border.top.color = "black",
 )%>%cols_label(
   maxcoinpay="Max Coin Pay",
-  percenttotalhitssum="% Of Total Hits",
+  percenttotalhitssum="% Of Hits Adjusted",
   percenttotaloutsum="% Of Total Out",
   plays.per.hit="Plays Per Hit",
   payandhigher="P/H And Higher",
